@@ -1,0 +1,29 @@
+OBJ=parse.o stats.o settings.o help.o
+FLAGS=@CFLAGS@ @DEFS@
+LIBS=@LIBS@
+STATIC_LIBS=@LIBUSEFUL_BUNDLED@
+PREFIX=@prefix@
+
+all: $(OBJ)
+	gcc $(FLAGS) -otimediff $(OBJ) main.c $(LIBS) $(STATIC_LIBS)
+
+stats.o: stats.h stats.c
+	gcc $(FLAGS) -c stats.c
+
+parse.o: parse.h parse.c
+	gcc $(FLAGS) -c parse.c
+
+settings.o: settings.h settings.c
+	gcc $(FLAGS) -c settings.c
+
+help.o: help.h help.c
+	gcc $(FLAGS) -c help.c
+
+
+
+clean:
+	rm -rf timediff *.o *.orig
+
+
+install:
+	cp -f timediff $(PREFIX)/bin
