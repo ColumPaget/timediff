@@ -1,4 +1,4 @@
-OBJ=parse.o stats.o settings.o help.o
+OBJ=parse.o stats.o settings.o help.o @LIBUSEFUL_BUNDLED@
 FLAGS=@CFLAGS@ @DEFS@
 LIBS=@LIBS@
 STATIC_LIBS=@LIBUSEFUL_BUNDLED@
@@ -19,10 +19,12 @@ settings.o: settings.h settings.c
 help.o: help.h help.c
 	gcc $(FLAGS) -c help.c
 
+libUseful-5/libUseful.a:
+	make -C libUseful-5
 
 
 clean:
-	rm -rf timediff *.o *.orig
+	rm -rf timediff *.o */*.o */*.so */*.a *.orig
 
 
 install:
