@@ -73,7 +73,9 @@ All options that take a 'seconds' argument are floating point, so milliseconds c
 TIMESTAMP FORMATS
 =================
 
-Timestamps are expected to be at the start of the line, and timediff can handle the formats `YYYY?mm?dd?HH:MM:SS?mmm` `HH:MM:SS?mmm YYYY?mm?dd` `bbb dd HH:MM:SS?mmm` where `?` is any character, `YYYY` is the year `mm` is the month number, `bbb` is the month short name (e.g. "Oct") `dd` is the day number, `HH` is the hour, `MM` is the minutes, `SS` is the seconds and `mmm` is milliseconds. The milliseconds component is optional, and if it's six digits instead of three, then timediff will parse it as nanoseconds.
+Timestamps are expected to be at the start of the line, and timediff can handle the formats `YYYY?mm?dd?HH:MM:SS?mmm` `HH:MM:SS?mmm YYYY?mm?dd` `bbb dd HH:MM:SS?mmm` `SSSS.mmm` where `?` is any character, `YYYY` is the year `mm` is the month number, `bbb` is the month short name (e.g. "Oct") `dd` is the day number, `HH` is the hour, `MM` is the minutes, `SS` is the seconds and `mmm` is milliseconds. The milliseconds component is optional, and if it's six digits instead of three, then timediff will parse it as nanoseconds. The 'SSSS.mmm' format is 'kernel/dmesg' style, where number of seconds since some date, either the unix epoch or boot-up, are used to indicate the time.
+
+timediff can also handle these formats if they're wrapped in characters like [] <> or {}
 
 example formats that have been seen to work:
 
@@ -84,6 +86,7 @@ example formats that have been seen to work:
 2023/12/05 10:30:14 Connection from 192.168.8.1
 Dec 05 10:30:14 Connection from 192.168.8.1
 10:30:14.182543 Connection from 192.168.8.1
+[1000.234762] Starting up
 ```
 
 

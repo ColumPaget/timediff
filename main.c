@@ -110,7 +110,7 @@ void ProcessLine(struct timeval *Prev, struct timeval *Curr, const char *Line)
 
 
 
-main(int argc, const char *argv[])
+int main(int argc, const char *argv[])
 {
     STREAM *S;
     char *Tempstr=NULL;
@@ -147,5 +147,5 @@ main(int argc, const char *argv[])
         STREAMClose(S);
 
     }
-
+return(0);
 }

@@ -144,11 +144,40 @@ int ParseUnixLogDateTime(const char *Input, struct timeval *tv)
 
     Destroy(Tempstr);
     Destroy(Token);
+    return(TRUE);
+}
+
+int ParseSecondsDateTime(const char *Input, struct timeval *tv)
+{
+uint64_t val;
+char *ptr=NULL;
+
+//printf("PS: %s\n", Input);
+
+tv->tv_sec=strtol(Input, &ptr, 10);
+ptr_incr((const char **) &ptr, 1);
+tv->tv_usec=strtol(ptr, NULL, 10);
+return(TRUE);
 }
 
 
 int ParseDateTime(const char *Input, struct timeval *tv)
 {
-    if (IsMonthName(Input)) return(ParseUnixLogDateTime(Input, tv));
-    return(ParseNumericDateTime(Input, tv));
+    const char *start, *end;
+    char *Tempstr=NULL;
+    int result=0;
+
+    start=Input;
+
+    //some logfiles put date in a [ ] wrapper
+    if (strchr("[<{", *start)) start++;
+    while (isspace(*start)) start++;
+
+    end=ExtractComponentStr(start, ".01234567890", &Tempstr);
+    if ( (StrLen(Tempstr) > 2) && (strchr(" ]>}", *end)) ) result=ParseSecondsDateTime(start, tv);
+    else if (IsMonthName(start)) result=ParseUnixLogDateTime(start, tv);
+    else result=ParseNumericDateTime(start, tv);
+
+    Destroy(Tempstr);
+    return(result);
 }
