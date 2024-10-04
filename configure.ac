@@ -1,9 +1,11 @@
-AC_INIT([timediff], [1.1], [colums.projects@gmail.com])
+AC_INIT([timediff],[1.2],[colums.projects@gmail.com])
 
 AC_PROG_CC
-AC_LANG_C
+AC_LANG([C])
 AC_PROG_MAKE_SET
-AC_HEADER_STDC
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_SYS_LARGEFILE
 
 
@@ -51,5 +53,6 @@ else
 fi
 
 dnl read Makefile.in and write Makefile
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 
