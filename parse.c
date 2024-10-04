@@ -152,8 +152,6 @@ int ParseSecondsDateTime(const char *Input, struct timeval *tv)
 uint64_t val;
 char *ptr=NULL;
 
-//printf("PS: %s\n", Input);
-
 tv->tv_sec=strtol(Input, &ptr, 10);
 ptr_incr((const char **) &ptr, 1);
 tv->tv_usec=strtol(ptr, NULL, 10);
@@ -163,7 +161,7 @@ return(TRUE);
 
 int ParseDateTime(const char *Input, struct timeval *tv)
 {
-    const char *start, *end;
+    const char *start, *end, *next;
     char *Tempstr=NULL;
     int result=0;
 
@@ -174,7 +172,23 @@ int ParseDateTime(const char *Input, struct timeval *tv)
     while (isspace(*start)) start++;
 
     end=ExtractComponentStr(start, ".01234567890", &Tempstr);
-    if ( (StrLen(Tempstr) > 2) && (strchr(" ]>}", *end)) ) result=ParseSecondsDateTime(start, tv);
+
+    // if it ends with one of space, brackets, etc, then it can be a numeric date/time
+    // as with other types of date/time the first component will normally end with 
+    // '/' or '-' for dates and ':' for times
+    if ( (StrLen(Tempstr) > 2) && (strchr(" ]>}", *end)) ) 
+    {
+	//we got a numeric value, but it could be an strace pid, if so the *next*
+        //component will be a time, and end in ':'
+    	if (*end == ' ') 
+	{
+	while (isspace(*end)) end++;
+	next=ExtractComponentStr(end, ".01234567890", &Tempstr);
+	if (*next==':') result=ParseNumericDateTime(end, tv);
+	else result=ParseSecondsDateTime(start, tv);
+	}
+	else result=ParseSecondsDateTime(start, tv);
+    }
     else if (IsMonthName(start)) result=ParseUnixLogDateTime(start, tv);
     else result=ParseNumericDateTime(start, tv);
 
