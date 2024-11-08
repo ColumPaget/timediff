@@ -3,7 +3,7 @@
 
 #include "includes.h"
 
-void StatsInsert(const char *Title, double timediff);
+void StatsInsert(const char *Title, struct timeval *When, double timediff);
 void StatsDisplay();
 
 

@@ -1,4 +1,4 @@
-#include "includes.h"
+#include "common.h"
 #include "stats.h"
 #include "parse.h"
 #include "settings.h"
@@ -48,7 +48,7 @@ int ItemIncluded(const char *Line, double secs)
 
 
 
-void ProcessTimedItem(double secs, const char *Line)
+void ProcessTimedItem(struct timeval *When, double Secs, const char *Line)
 {
     const char *prefix="", *postfix="";
     char *Tempstr=NULL;
@@ -63,9 +63,9 @@ void ProcessTimedItem(double secs, const char *Line)
     }
     else if (Started)
     {
-        if ((Settings.WarnTime > -1) && (secs > Settings.WarnTime))
+        if ((Settings.WarnTime > -1) && (Secs > Settings.WarnTime))
         {
-            StatsInsert("over-warn", secs);
+            StatsInsert("over-warn", When, Secs);
             prefix=Settings.WarnPrefix;
             postfix=Settings.WarnPostfix;
         }
@@ -75,11 +75,12 @@ void ProcessTimedItem(double secs, const char *Line)
             postfix=Settings.NormPostfix;
         }
 
-	if (Settings.Flags & FLAG_NANOSECS) printf("%s%14.6f%s  %s\n", prefix, secs, postfix, Line);
-        else printf("%s%10.3f%s  %s\n", prefix, secs, postfix, Line);
+        if (Settings.Flags & FLAG_NANOSECS) printf("%s%14.6f%s  %s\n", prefix, Secs, postfix, Line);
+        else printf("%s%10.3f%s  %s\n", prefix, Secs, postfix, Line);
 
-        StatsInsert("default", secs);
-        if (InPatternList(Line, Settings.Summaries, &Tempstr)) StatsInsert(Tempstr, secs);
+        StatsInsert("default", When, Secs);
+
+        if (InPatternList(Line, Settings.Summaries, &Tempstr)) StatsInsert(Tempstr, When, Secs);
         if (InPatternList(Line, Settings.EndStrings, NULL)) Started=FALSE;
     }
 
@@ -88,29 +89,16 @@ void ProcessTimedItem(double secs, const char *Line)
 
 
 
-void ProcessLine(struct timeval *Prev, struct timeval *Curr, const char *Line)
+
+double ProcessLine(struct timeval *Prev, struct timeval *Curr, const char *Line)
 {
-    double secs=0, usec=0;
+    double secs=0;
 
-    if (Prev->tv_sec > 0)
-    {
-        //calcluate secs as a floating point value with millisecond resolution
-        secs=difftime(Curr->tv_sec, Prev->tv_sec);
-        if (Curr->tv_usec < Prev->tv_usec) 
-	{
-	secs-=1; //we have rolled over our usec, so there's actually one fewer second
-	usec=1000000 - Prev->tv_usec + Curr->tv_usec;
-	}
-        else usec=Curr->tv_usec - Prev->tv_usec;
+    secs=CalcTimediff(Prev, Curr);
+    if (ItemIncluded(Line, secs)) ProcessTimedItem(Curr, secs, Line);
 
-        secs += usec / 1000000;
-
-    }
-
-    if (ItemIncluded(Line, secs)) ProcessTimedItem(secs, Line);
+    return(secs);
 }
-
-
 
 
 
@@ -149,7 +137,7 @@ int main(int argc, const char *argv[])
         StatsDisplay();
 
         STREAMClose(S);
-
     }
-return(0);
+
+    return(0);
 }

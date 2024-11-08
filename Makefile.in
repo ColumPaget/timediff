@@ -1,4 +1,4 @@
-OBJ=parse.o stats.o settings.o help.o @LIBUSEFUL_BUNDLED@
+OBJ=common.o parse.o stats.o settings.o help.o @LIBUSEFUL_BUNDLED@
 FLAGS=@CFLAGS@ @DEFS@
 LIBS=@LIBS@
 STATIC_LIBS=@LIBUSEFUL_BUNDLED@
@@ -6,6 +6,9 @@ PREFIX=@prefix@
 
 all: $(OBJ)
 	gcc $(FLAGS) -otimediff $(OBJ) main.c $(LIBS) $(STATIC_LIBS)
+
+common.o: common.h common.c
+	gcc $(FLAGS) -c common.c
 
 stats.o: stats.h stats.c
 	gcc $(FLAGS) -c stats.c

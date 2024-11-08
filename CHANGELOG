@@ -1,8 +1,12 @@
+1.3 (2024-11-08)
+----------------
+  * don't include first item in 'minimum time' (as that will always be zero)
+  * add 'total time' to stats
+
 1.2 (2024-10-04)
 ----------------
   * handle useconds roll-over when calculating times
   * handle strace 'pid' header at start of line
-
 
 1.1 (2024-01-10)
 ----------------

@@ -80,11 +80,11 @@ char *ParseTime(char *RetStr, const char *Input, struct timeval *tv)
     if (StrValid(ptr))
     {
         ptr=ExtractComponentStr(ptr+1, "01234567890", &Token);
-        if (StrLen(Token)==6) 
-	{
-	tv->tv_usec=atoi(Token);
-	Settings.Flags |= FLAG_NANOSECS;
-	}
+        if (StrLen(Token)==6)
+        {
+            tv->tv_usec=atoi(Token);
+            Settings.Flags |= FLAG_NANOSECS;
+        }
         else tv->tv_usec=atoi(Token) * 1000;
     }
 
@@ -149,13 +149,13 @@ int ParseUnixLogDateTime(const char *Input, struct timeval *tv)
 
 int ParseSecondsDateTime(const char *Input, struct timeval *tv)
 {
-uint64_t val;
-char *ptr=NULL;
+    uint64_t val;
+    char *ptr=NULL;
 
-tv->tv_sec=strtol(Input, &ptr, 10);
-ptr_incr((const char **) &ptr, 1);
-tv->tv_usec=strtol(ptr, NULL, 10);
-return(TRUE);
+    tv->tv_sec=strtol(Input, &ptr, 10);
+    ptr_incr((const char **) &ptr, 1);
+    tv->tv_usec=strtol(ptr, NULL, 10);
+    return(TRUE);
 }
 
 
@@ -174,20 +174,20 @@ int ParseDateTime(const char *Input, struct timeval *tv)
     end=ExtractComponentStr(start, ".01234567890", &Tempstr);
 
     // if it ends with one of space, brackets, etc, then it can be a numeric date/time
-    // as with other types of date/time the first component will normally end with 
+    // as with other types of date/time the first component will normally end with
     // '/' or '-' for dates and ':' for times
-    if ( (StrLen(Tempstr) > 2) && (strchr(" ]>}", *end)) ) 
+    if ( (StrLen(Tempstr) > 2) && (strchr(" ]>}", *end)) )
     {
-	//we got a numeric value, but it could be an strace pid, if so the *next*
+        //we got a numeric value, but it could be an strace pid, if so the *next*
         //component will be a time, and end in ':'
-    	if (*end == ' ') 
-	{
-	while (isspace(*end)) end++;
-	next=ExtractComponentStr(end, ".01234567890", &Tempstr);
-	if (*next==':') result=ParseNumericDateTime(end, tv);
-	else result=ParseSecondsDateTime(start, tv);
-	}
-	else result=ParseSecondsDateTime(start, tv);
+        if (*end == ' ')
+        {
+            while (isspace(*end)) end++;
+            next=ExtractComponentStr(end, ".01234567890", &Tempstr);
+            if (*next==':') result=ParseNumericDateTime(end, tv);
+            else result=ParseSecondsDateTime(start, tv);
+        }
+        else result=ParseSecondsDateTime(start, tv);
     }
     else if (IsMonthName(start)) result=ParseUnixLogDateTime(start, tv);
     else result=ParseNumericDateTime(start, tv);

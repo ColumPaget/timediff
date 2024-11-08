@@ -26,13 +26,13 @@ void Help()
 
 void Version()
 {
-printf("timediff: %s\n", PACKAGE_VERSION);
-printf("Copyright (C) 2023 Colum Paget.\n");
-printf("License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n");
-printf("This is free software: you are free to change and redistribute it.\n");
-printf("There is NO WARRANTY, to the extent permitted by law.\n");
-printf("\nWritten by Colum Paget.\n");
-exit(0);
+    printf("timediff: %s\n", PACKAGE_VERSION);
+    printf("Copyright (C) 2023 Colum Paget.\n");
+    printf("License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.\n");
+    printf("This is free software: you are free to change and redistribute it.\n");
+    printf("There is NO WARRANTY, to the extent permitted by law.\n");
+    printf("\nWritten by Colum Paget.\n");
+    exit(0);
 }
 
 
