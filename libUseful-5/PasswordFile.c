@@ -4,7 +4,7 @@
 
 
 
-char *PasswordFileGenerateEntry(char *RetStr, const char *User, const char *PassType, const char *Password)
+char *PasswordFileGenerateEntry(char *RetStr, const char *User, const char *PassType, const char *Password, const char *Extra)
 {
     char *Salt=NULL, *Hash=NULL, *Tempstr=NULL;
 
@@ -20,7 +20,8 @@ char *PasswordFileGenerateEntry(char *RetStr, const char *User, const char *Pass
         HashBytes(&Hash, PassType, Tempstr, StrLen(Tempstr), ENCODE_BASE64);
     }
 
-    RetStr=MCopyStr(RetStr, User, ":", PassType, ":", Salt, ":", Hash, "\n", NULL);
+    Tempstr=QuoteCharsInStr(Tempstr, Extra, ":");
+    RetStr=MCopyStr(RetStr, User, ":", PassType, ":", Salt, ":", Hash, ":", Tempstr, "\n", NULL);
 
     Destroy(Tempstr);
     Destroy(Hash);
@@ -30,7 +31,7 @@ char *PasswordFileGenerateEntry(char *RetStr, const char *User, const char *Pass
 }
 
 
-int PasswordFileAdd(const char *Path, const char *PassType, const char *User, const char *Password)
+int PasswordFileAdd(const char *Path, const char *PassType, const char *User, const char *Password, const char *Extra)
 {
     STREAM *Old, *New;
     char *Tempstr=NULL, *Token=NULL, *Salt=NULL;
@@ -55,7 +56,7 @@ int PasswordFileAdd(const char *Path, const char *PassType, const char *User, co
         }
 
 
-        Tempstr=PasswordFileGenerateEntry(Tempstr, User, PassType, Password);
+        Tempstr=PasswordFileGenerateEntry(Tempstr, User, PassType, Password, Extra);
         STREAMWriteLine(Tempstr, New);
 
         rename(New->Path, Path);
@@ -73,7 +74,7 @@ int PasswordFileAdd(const char *Path, const char *PassType, const char *User, co
 }
 
 
-int PasswordFileAppend(const char *Path, const char *PassType, const char *User, const char *Password)
+int PasswordFileAppend(const char *Path, const char *PassType, const char *User, const char *Password, const char *Extra)
 {
     STREAM *F;
     char *Tempstr=NULL, *Token=NULL;
@@ -83,7 +84,7 @@ int PasswordFileAppend(const char *Path, const char *PassType, const char *User,
     if (! F) return(FALSE);
 
     STREAMSeek(F, 0, SEEK_END);
-    Tempstr=PasswordFileGenerateEntry(Tempstr, User, PassType, Password);
+    Tempstr=PasswordFileGenerateEntry(Tempstr, User, PassType, Password, Extra);
     STREAMWriteLine(Tempstr, F);
     STREAMClose(F);
 
@@ -99,7 +100,7 @@ int PasswordFileAppend(const char *Path, const char *PassType, const char *User,
 
 static int PasswordFileMatchItem(const char *Data, const char *User, const char *Password)
 {
-    char *Token=NULL, *Salt=NULL, *Compare=NULL, *Tempstr=NULL;
+    char *Tempstr=NULL, *Token=NULL, *Salt=NULL, *ProvidedCred=NULL,  *StoredCred=NULL;
     const char *ptr;
     int result=FALSE;
 
@@ -108,19 +109,21 @@ static int PasswordFileMatchItem(const char *Data, const char *User, const char 
     {
         ptr=GetToken(ptr, ":", &Token, 0);
         ptr=GetToken(ptr, ":", &Salt, 0);
+        ptr=GetToken(ptr, ":", &StoredCred, 0);
 
-        if ( (! StrValid(Token)) || (strcmp(Token, "plain")==0) ) Compare=CopyStr(Compare, Password);
+        if ( (! StrValid(Token)) || (strcmp(Token, "plain")==0) ) ProvidedCred=CopyStr(ProvidedCred, Password);
         else
         {
             Tempstr=MCopyStr(Tempstr, Salt, Password, NULL);
-            HashBytes(&Compare, Token, Tempstr, StrLen(Tempstr), ENCODE_BASE64);
+            HashBytes(&ProvidedCred, Token, Tempstr, StrLen(Tempstr), ENCODE_BASE64);
         }
 
-        if (strcmp(Compare, ptr) == 0) result=TRUE;
+        if (strcmp(ProvidedCred, StoredCred) == 0) result=TRUE;
     }
 
     Destroy(Tempstr);
-    Destroy(Compare);
+    Destroy(StoredCred);
+    Destroy(ProvidedCred);
     Destroy(Token);
     Destroy(Salt);
 
@@ -128,11 +131,15 @@ static int PasswordFileMatchItem(const char *Data, const char *User, const char 
 }
 
 
-int PasswordFileCheck(const char *Path, const char *User, const char *Password)
+int PasswordFileCheck(const char *Path, const char *User, const char *Password, char **Extra)
 {
     STREAM *F;
     char *Tempstr=NULL;
+    const char *ptr;
     int result=FALSE;
+
+    if (! StrValid(Path)) return(FALSE);
+    if (! StrValid(User)) return(FALSE);
 
     F=STREAMOpen(Path, "r");
     if (F)
@@ -142,13 +149,22 @@ int PasswordFileCheck(const char *Path, const char *User, const char *Password)
         {
             StripTrailingWhitespace(Tempstr);
             result=PasswordFileMatchItem(Tempstr, User, Password);
-            if (result) break;
+            if (result)
+            {
+                if (Extra)
+                {
+                    ptr=strrchr(Tempstr, ':');
+                    *Extra=UnQuoteStr(*Extra, ptr+1);
+                }
+                break;
+            }
+
             Tempstr=STREAMReadLine(Tempstr, F);
         }
 
         STREAMClose(F);
     }
-
+    else RaiseError(ERRFLAG_DEBUG, "PasswordFileCheck", "can't open %s", Path);
     Destroy(Tempstr);
 
     return(result);

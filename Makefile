@@ -29,7 +29,7 @@ libUseful-5/libUseful.a:
 
 
 clean:
-	rm -rf timediff *.o */*.o */*.so */*.a *.orig
+	rm -rf timediff *.o */*.o */*.so */*.so.* */*.a *.orig config.log */config.log configure~ */configure~ autom4te.cache */autom4te.cache
 
 
 install:

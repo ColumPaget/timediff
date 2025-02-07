@@ -40,6 +40,8 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #include "DataProcessing.h"
 #include "Encodings.h"
 #include "Hash.h"
+#include "HMAC.h"
+#include "OTP.h"
 #include "Compression.h"
 #include "Time.h"
 #include "Vars.h"
@@ -61,6 +63,8 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #include "Terminal.h"
 #include "TerminalMenu.h"
 #include "TerminalChoice.h"
+#include "TerminalProgress.h"
+#include "TerminalCalendar.h"
 #include "TerminalBar.h"
 #include "Process.h"
 #include "SecureMem.h"
@@ -70,5 +74,8 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #include "HttpServer.h"
 #include "WebSocket.h"
 #include "PasswordFile.h"
+#include "StreamAuth.h"
+#include "CGI.h"
+#include "LineEdit.h"
 
 #endif

@@ -44,6 +44,9 @@ ListNode *SetTypedVar(ListNode *Vars, const char *Name, const char *Data, int Ty
 //set a variable
 ListNode *SetVar(ListNode *Vars, const char *Name, const char *Data);
 
+//append to a variable
+void AppendVar(ListNode *Vars, const char *VarName, const char *Value);
+
 //get a variable by name and type
 const char *GetTypedVar(ListNode *Vars, const char *Name, int Type);
 
@@ -56,6 +59,12 @@ void ClearVars(ListNode *Vars);
 //copy variables from one list to another
 void CopyVars(ListNode *Dest, ListNode *Source);
 
+//set a var to a numeric value
+void SetNumericVar(ListNode *Vars, const char *VarName, int Value);
+
+//add a value to a numeric var
+int AddToNumericVar(ListNode *Vars, const char *VarName, int Add);
+
 //given a format string containing vars in the form $(VarName) and a list of variables, substitute the $(VarName) entries
 //with the approriate named variable
 //'Flags' is a bitmask of the SUBS_ flags:
@@ -65,7 +74,7 @@ void CopyVars(ListNode *Dest, ListNode *Source);
 // SUBS_STRIP                   Strip whitespace surrounding any value before substitution
 // SUBS_INTERPRET_BACKSLASH     Interpret backslash in the substitution string as a quote, so don't substitute "\$(thing)"
 // SUBS_QUOTES                  Honor quotes in the subsitution string, and don't quote anyting in quotes
-// SUBS_SHELL_SAFE              Strip vars of any shell-unsafe characters (;&`) before substituting
+// SUBS_SHELL_SAFE              Strip vars of any shell-unsafe characters (;&`$) AFTER substituting
 // SUBS_HTTP_VARS               Quote values with HTTP style substitution
 char *SubstituteVarsInString(char *Buffer, const char *Fmt, ListNode *Vars, int Flags);
 
@@ -76,6 +85,13 @@ int ExtractVarsFromString(const char *Data, const char *FormatStr, ListNode *Var
 //given a string that contains '$(VarName)' entries, return a list of VarNames in 'Vars'.
 //The names are set in the '->Tag' part of the ListNode structures, so that values can be set to the '->Item' part of the structure
 int FindVarNamesInString(const char *Data, ListNode *Vars);
+
+
+//given a list of name-value pairs, parse them into a Vars List. 'PairDelim' is the delimiter between name-value pairs
+//and 'NameValueDelim' is the delimiter between names and values. So to parse a string in the form "<name1>=<value1> <name2>=<value2>"
+//you would call "Vars=VarsFromNameValueList(Input, "\\S", "=");" (where "\\S" means 'any whitespace'
+ListNode *VarsFromNameValueList(const char *List, const char *PairDelim, const char *NameValueDelim);
+
 
 #ifdef __cplusplus
 }

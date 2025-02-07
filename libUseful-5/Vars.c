@@ -30,6 +30,17 @@ ListNode *SetVar(ListNode *Vars, const char *Name, const char *Data)
     return(SetDetailVar(Vars, Name, Data,0, 0));
 }
 
+void AppendVar(ListNode *Vars, const char *VarName, const char *Value)
+{
+    char *Tempstr=NULL;
+
+    Tempstr=MCopyStr(Tempstr,GetVar(Vars, VarName),Value, " ", NULL);
+    SetVar(Vars, VarName, Tempstr);
+
+    Destroy(Tempstr);
+}
+
+
 
 ListNode *FindTypedVar(ListNode *Vars, const char *Name, int Type)
 {
@@ -136,7 +147,7 @@ static char *SubstituteAppendVar(char *RetStr, const char *Var, int Flags)
 static char *SubstituteParseVar(char *OutStr, const char **Line, ListNode *LocalVars, int Flags)
 {
     char *VarName=NULL, *Tempstr=NULL;
-    const char *ptr, *vptr;
+    const char *ptr;
 
     ptr=*Line;
 
@@ -405,7 +416,6 @@ int ExtractVarsFromString(const char *Data, const char *FormatStr, ListNode *Var
 
 
 
-
 int FindVarNamesInString(const char *Data, ListNode *Vars)
 {
     const char *ptr;
@@ -423,5 +433,52 @@ int FindVarNamesInString(const char *Data, ListNode *Vars)
     Destroy(Name);
 
     return(ListSize(Vars));
+}
+
+
+
+void SetNumericVar(ListNode *Vars, const char *VarName, int Value)
+{
+    char *Tempstr=NULL;
+
+    Tempstr=FormatStr(Tempstr, "%d", Value);
+    SetVar(Vars, VarName, Tempstr);
+
+    Destroy(Tempstr);
+}
+
+int AddToNumericVar(ListNode *Vars, const char *VarName, int Add)
+{
+    const char *ptr;
+    int val=0;
+
+    ptr=GetVar(Vars, VarName);
+    if (ptr) val=atoi(ptr);
+    val += Add;
+
+    SetNumericVar(Vars, VarName, val);
+
+    return(val);
+}
+
+
+ListNode *VarsFromNameValueList(const char *List, const char *PairDelim, const char *NameValueDelim)
+{
+    char *Name=NULL, *Value=NULL;
+    const char *ptr;
+    ListNode *Vars;
+
+    Vars=ListCreate();
+    ptr=GetNameValuePair(List, PairDelim, NameValueDelim, &Name, &Value);
+    while (ptr)
+    {
+        SetVar(Vars, Name, Value);
+        ptr=GetNameValuePair(ptr, PairDelim, NameValueDelim, &Name, &Value);
+    }
+
+    Destroy(Name);
+    Destroy(Value);
+
+    return(Vars);
 }
 

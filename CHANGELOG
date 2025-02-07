@@ -3,6 +3,7 @@
   * add `-fromstart` option to allow measuring timediffs from a 'start line' rather than from previous line
   * add `-indent` option to allow treating whitespace-indented lines as continuations of previous line
   * add `-multiline` option to allow treating lines that do not start with a digit as continuations of previous line
+  * fix configure without installed/with bundled libuseful
   * add manpage
 
 1.3 (2024-11-08)

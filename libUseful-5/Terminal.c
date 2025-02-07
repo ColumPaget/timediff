@@ -8,6 +8,7 @@
 #include "TerminalBar.h" //for TerminalBarsInit
 #include "TerminalTheme.h"
 #include "Encodings.h"
+#include "LineEdit.h"
 
 static const char *ANSIColorStrings[]= {"none","black","red","green","yellow","blue","magenta","cyan","white",NULL};
 
@@ -133,6 +134,23 @@ int TerminalStrLen(const char *Str)
 }
 
 
+char *TerminalPadStr(char *Str, int PadChar, int PadTo)
+{
+    int term_len, len, diff, max;
+
+    term_len=TerminalStrLen(Str);
+    len=StrLen(Str);
+    diff=PadTo-term_len;
+    max=len+diff;
+    while (len < max)
+    {
+        Str=AddCharToBuffer(Str, len, PadChar);
+        len++;
+    }
+
+    return(Str);
+}
+
 
 char *TerminalStrTrunc(char *Str, int MaxLen)
 {
@@ -246,6 +264,7 @@ int ANSIParseColor(const char *Str)
 void TerminalGeometry(STREAM *S, int *wid, int *len)
 {
     struct winsize w;
+    char *Tempstr=NULL;
     const char *ptr;
     int val=0;
 
@@ -268,6 +287,14 @@ void TerminalGeometry(STREAM *S, int *wid, int *len)
 
     *wid=w.ws_col;
     *len=w.ws_row;
+
+
+    Tempstr=FormatStr(Tempstr,"%d", *wid);
+    STREAMSetValue(S, "Terminal:cols", Tempstr);
+    Tempstr=FormatStr(Tempstr,"%d", *len);
+    STREAMSetValue(S, "Terminal:rows", Tempstr);
+
+    Destroy(Tempstr);
 }
 
 
@@ -322,9 +349,9 @@ void TerminalInternalConfig(const char *Config, int *ForeColor, int *BackColor, 
             if (strcasecmp(Name,"mouse")==0) *Flags=TERM_MOUSE;
             break;
 
-	case 'n':
+        case 'n':
             if (strcasecmp(Name,"nocolor")==0) *Flags=TERM_NOCOLOR;
-	    break;
+            break;
 
         case 'r':
         case 'R':
@@ -369,6 +396,12 @@ const char *TerminalAlignText(const char *Text, char **RetStr, int Flags, STREAM
     int pos=0, cols, rows, len, i;
     const char *ptr;
 
+    if (! Term)
+    {
+        *RetStr=CopyStr(*RetStr, Text);
+        return(Text+StrLen(Text));
+    }
+
     TerminalGeometry(Term, &cols, &rows);
     len=TerminalStrLen(Text);
 
@@ -399,7 +432,6 @@ const char *TerminalAlignText(const char *Text, char **RetStr, int Flags, STREAM
 
 char *TerminalCommandStr(char *RetStr, int Cmd, int Arg1, int Arg2)
 {
-    int i;
     char *Tempstr=NULL;
 
     switch (Cmd)
@@ -524,7 +556,7 @@ const char *TerminalParseColor(const char *Str, int *Fg, int *Bg)
         *Fg=ANSI_WHITE + offset;
         break;
     case 'W':
-        *Fg=ANSI_WHITE + offset;
+        *Bg=ANSI_WHITE + offset;
         break;
     case 'y':
         *Fg=ANSI_YELLOW + offset;
@@ -575,7 +607,7 @@ char *TerminalFillToEndOfLine(char *RetStr, int fill_char, STREAM *Term)
 
 const char *TerminalFormatSubStr(const char *Str, char **RetStr, STREAM *Term)
 {
-    const char *ptr, *end;
+    const char *ptr;
     char *Tempstr=NULL;
     long val;
     int Fg, Bg;
@@ -656,7 +688,8 @@ const char *TerminalFormatSubStr(const char *Str, char **RetStr, STREAM *Term)
                 Fg=0;
                 Bg=0;
                 ptr=TerminalParseColor(ptr, &Fg, &Bg);
-                if (! (Term->Flags & TERM_STREAM_NOCOLOR)) *RetStr=TerminalCommandStr(*RetStr, TERM_COLOR, Fg, Bg);
+                //if we have a Term object, then TERM_STREAM_NOCOLOR must not be set
+                if ((! Term) || (! (Term->Flags & TERM_STREAM_NOCOLOR))) *RetStr=TerminalCommandStr(*RetStr, TERM_COLOR, Fg, Bg);
                 break;
 
             case 'e':
@@ -713,7 +746,13 @@ const char *TerminalFormatSubStr(const char *Str, char **RetStr, STREAM *Term)
         else if (*ptr & 128)
         {
             val=UnicodeDecode(&ptr);
-            if (val > 0) *RetStr=TerminalCommandStr(*RetStr, TERM_UNICODE, val, 0);
+            if (val > 0)
+            {
+                *RetStr=TerminalCommandStr(*RetStr, TERM_UNICODE, val, 0);
+                //ptr will have moved to the end of the unicode, unfortunately ptr++ on next loop
+                //will result in us skipping a character, so we have to wind back one
+                ptr--;
+            }
         }
         else
         {
@@ -769,6 +808,7 @@ void TerminalPutChar(int Char, STREAM *S)
         else result=write(1,Tempstr,StrLen(Tempstr));
     }
 
+
     Destroy(Tempstr);
 }
 
@@ -785,6 +825,21 @@ void TerminalPutStr(const char *Str, STREAM *S)
     len=StrLenFromCache(Tempstr);
     if (S) STREAMWriteBytes(S, Tempstr, len);
     else result=write(1,Tempstr,len);
+
+    Destroy(Tempstr);
+}
+
+
+
+void TerminalPrint(STREAM *S, const char *FmtStr, ...)
+{
+    char *Tempstr=NULL;
+    va_list args;
+
+    va_start(args,FmtStr);
+    Tempstr=VFormatStr(Tempstr, FmtStr, args);
+    va_end(args);
+    TerminalPutStr(Tempstr, S);
 
     Destroy(Tempstr);
 }
@@ -941,105 +996,95 @@ int TerminalTextConfig(const char *Config)
 }
 
 
-char *TerminalReadText(char *RetStr, int Flags, STREAM *S)
+
+char *TerminalReadTextWithPrefix(char *RetStr, int Flags, const char *Prefix, STREAM *S)
 {
-    int inchar, len=0;
-    char outchar;
+    TLineEdit *LE;
+    int len, inchar, result;
+    char *Tempstr=NULL, *Text=NULL;
     TKEY_CALLBACK_FUNC Func;
+
+    if (Flags & (TERM_HIDETEXT | TERM_SHOWSTARS | TERM_SHOWTEXTSTARS)) LE=LineEditCreate(LINE_EDIT_NOMOVE);
+    else LE=LineEditCreate(0);
 
     len=StrLen(RetStr);
     if (len > 0)
     {
+        LineEditSetText(LE, RetStr);
         STREAMWriteLine(RetStr, S);
         STREAMFlush(S);
     }
 
-    inchar=TerminalReadChar(S);
+    inchar=0;
     while (inchar != EOF)
     {
-        Func=STREAMGetItem(S, "KeyCallbackFunc");
-        if (Func) Func(S, inchar);
-        outchar=inchar & 0xFF;
+        result=LineEditHandleChar(LE, inchar);
 
-        switch (inchar)
+        Text=CopyStr(Text, LE->Line);
+        Tempstr=MCopyStr(Tempstr, "\r~>", Prefix, " ", NULL);
+
+        if (LE->Len > 0)
         {
-        case ESCAPE:
-            Destroy(RetStr);
-            return(NULL);
-            break;
-
-        case STREAM_TIMEOUT:
-        case STREAM_NODATA:
-        case '\n':
-        case '\r':
-            break;
-
-        //'backspace' key on keyboard will send the 'del' character in some cases!
-        case 0x7f: //this is 'del'
-        case 0x08: //this is backspace
-            outchar=0;
-            //backspace over previous character and erase it with whitespace!
-            if (len > 0)
+            if (Flags & TERM_SHOWTEXTSTARS)
             {
-                STREAMWriteString("\x08 ",S);
-                outchar=0x08;
-                len--;
+                //if the user has hit enter, then star out all the text
+                if (result==LINE_EDIT_ENTER) memset(Text, '*', StrLen(Text));
+                //otherwise allow last typed character to be seen
+                else memset(Text, '*', StrLen(Text)-1);
             }
-            break;
+            else if (Flags & TERM_SHOWSTARS) memset(Text, '*', StrLen(Text));
 
-        default:
-            if (Flags & TERM_SHOWSTARS) outchar='*';
-            else if ((Flags & TERM_SHOWTEXTSTARS) && (len > 0))
+            if (! (Flags & TERM_HIDETEXT))
             {
-                //backspace over previous character and replace with star
-                STREAMWriteString("\x08*",S);
+                Tempstr=CatStr(Tempstr, Text);
+                if (LE->Cursor != LE->Len)
+                {
+                    Tempstr=MCatStr(Tempstr, "\r", Prefix, NULL);
+                    Tempstr=CatStrLen(Tempstr, Text, LE->Cursor);
+                }
             }
-            RetStr=AddCharToBuffer(RetStr,len++, inchar & 0xFF);
-            break;
         }
 
-        if ( (inchar == '\n') || (inchar == '\r') )
+        TerminalPutStr(Tempstr, S);
+        STREAMFlush(S);
+
+        if (result == LINE_EDIT_ENTER)
         {
-            //backspace over previous character and replace with star, so the
-            //last character is not left chnaging when we press 'enter'
-            if (Flags & TERM_SHOWTEXTSTARS) STREAMWriteString("\x08*",S);
-
-            //ensure we don't return NULL, but that we instead return an empty string
-            if (RetStr==NULL) RetStr=CatStr(RetStr, "");
-
+            RetStr=CopyStr(RetStr, LE->Line);
             break;
-        }
-
-        if ( (! (Flags & TERM_HIDETEXT)) && (outchar > 0) )
-        {
-            STREAMWriteBytes(S, &outchar,1);
-            STREAMFlush(S);
         }
 
         inchar=TerminalReadChar(S);
+
+        Func=STREAMGetItem(S, "KeyCallbackFunc");
+        if (Func) Func(S, inchar);
     }
 
-    StrLenCacheAdd(RetStr, len);
+    LineEditDestroy(LE);
+    Destroy(Tempstr);
+    Destroy(Text);
 
     return(RetStr);
 }
 
+
+char *TerminalReadText(char *RetStr, int Flags, STREAM *S)
+{
+    return(TerminalReadTextWithPrefix(RetStr, Flags, "", S));
+}
 
 
 char *TerminalReadPrompt(char *RetStr, const char *Prompt, int Flags, STREAM *S)
 {
     int TTYFlags=0;
 
-    TerminalPutStr("~>",S);
-    TerminalPutStr(Prompt, S);
-    STREAMFlush(S);
     if (Flags & (TERM_HIDETEXT | TERM_SHOWSTARS | TERM_SHOWTEXTSTARS))
     {
         TTYFlags=TTYGetConfig(S->in_fd);
         TTYSetEcho(S->in_fd, FALSE);
         TTYSetCanonical(S->in_fd, FALSE);
     }
-    RetStr=TerminalReadText(RetStr, Flags, S);
+    RetStr=TerminalReadTextWithPrefix(RetStr,Flags, Prompt,  S);
     if (TTYFlags & TTYFLAG_ECHO) TTYSetEcho(S->in_fd, TRUE);
     if (TTYFlags & TTYFLAG_CANON) TTYSetCanonical(S->in_fd, TRUE);
 
@@ -1056,10 +1101,6 @@ int TerminalInit(STREAM *S, int Flags)
     int ttyflags=0;
 
     TerminalGeometry(S, &cols, &rows);
-    Tempstr=FormatStr(Tempstr,"%d",cols);
-    STREAMSetValue(S, "Terminal:cols", Tempstr);
-    Tempstr=FormatStr(Tempstr,"%d",rows);
-    STREAMSetValue(S, "Terminal:rows", Tempstr);
     STREAMSetValue(S, "Terminal:top", "0");
 
 
@@ -1073,7 +1114,7 @@ int TerminalInit(STREAM *S, int Flags)
         if (ttyflags) TTYConfig(S->in_fd, 0, ttyflags);
     }
 
-    XtermSetDefaultColors(S, TerminalThemeGet("Terminal:Attribs"));
+    XtermSetDefaultColors(S, TerminalThemeGet("Terminal", "Attribs"));
     TerminalBarsInit(S);
     if (Flags & TERM_WHEELMOUSE) STREAMWriteLine("\x1b[?1000h", S);
     else if (Flags & TERM_MOUSE) STREAMWriteLine("\x1b[?9h", S);

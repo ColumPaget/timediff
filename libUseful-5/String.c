@@ -122,6 +122,7 @@ char *SetStrLen(char *Str, size_t len)
     char *ptr;
 
     StrLenCacheDel(Str);
+
     // Note len+1 to allow for terminating NULL
     if (Str==NULL) ptr=(char *) calloc(1, len + 8);
     else ptr=(char *) realloc(Str, len + 8);
@@ -163,14 +164,18 @@ char *CatStrLen(char *Dest, const char *Src, size_t len)
 
     dstlen=StrLenFromCache(Dest);
     Dest=SetStrLen(Dest, dstlen+len);
+
     dst=Dest+dstlen;
-    src=Src;
-    end=src+len;
-    while ((src < end) && (*src != '\0'))
+    if (Src)
     {
-        *dst=*src;
-        dst++;
-        src++;
+        src=Src;
+        end=src+len;
+        while ((src < end) && (*src != '\0'))
+        {
+            *dst=*src;
+            dst++;
+            src++;
+        }
     }
     *dst='\0';
 
@@ -194,7 +199,6 @@ char *VCatStr(char *Dest, const char *Str1,  va_list args)
     size_t len=0, ilen;
     char *ptr=NULL;
     const char *sptr=NULL;
-    char *eptr;
 
 
     if (Dest !=NULL)
@@ -298,7 +302,7 @@ int StrRTruncChar(char *Str, char Term)
 char *PadStr(char*Dest, char Pad, int PadLen)
 {
     char *NewStr=NULL;
-    int i, len, abslen;
+    int i, abslen;
 
     if (PadLen==0) return(Dest);
     if (PadLen < 0) abslen=0-PadLen;
@@ -326,7 +330,6 @@ char *PadStr(char*Dest, char Pad, int PadLen)
 
 char *PadStrTo(char*Dest, char Pad, int PadLen)
 {
-    char *NewStr=NULL;
     int val, len;
 
     if (PadLen==0) return(Dest);
@@ -589,7 +592,7 @@ char *StripQuotes(char *Str)
 char *QuoteCharsInStr(char *Buffer, const char *String, const char *QuoteChars)
 {
     char *RetStr=NULL;
-    const char *sptr, *cptr;
+    const char *sptr;
     size_t olen=0;
 
     RetStr=CopyStr(Buffer,"");

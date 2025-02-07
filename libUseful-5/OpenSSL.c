@@ -61,15 +61,12 @@ static void STREAM_INTERNAL_SSL_ADD_SECURE_KEYS_LIST(STREAM *S, SSL_CTX *ctx, Li
 
 static void STREAM_INTERNAL_SSL_ADD_SECURE_KEYS(STREAM *S, SSL_CTX *ctx)
 {
-    ListNode *Curr;
     char *VerifyFile=NULL, *VerifyPath=NULL;
 
     SSL_CTX_set_default_verify_paths(ctx);
 
 //Default Verify path
 //VerifyFile=CopyStr(VerifyFile,"/etc/ssl/certs/cacert.pem");
-
-    Curr=ListGetNext(LibUsefulValuesGetHead());
 
     STREAM_INTERNAL_SSL_ADD_SECURE_KEYS_LIST(S, ctx, LibUsefulValuesGetHead(), &VerifyPath, &VerifyFile);
     STREAM_INTERNAL_SSL_ADD_SECURE_KEYS_LIST(S, ctx, S->Values, &VerifyPath, &VerifyFile);
@@ -81,7 +78,11 @@ static void STREAM_INTERNAL_SSL_ADD_SECURE_KEYS(STREAM *S, SSL_CTX *ctx)
 
 }
 
-static int OpenSSLVerifyCallback(int PreverifyStatus, X509_STORE_CTX *X509)
+
+
+//do not configure this function as static, it is useful for autoconf checks to discover if libUseful
+//has been compiled with SSL included
+int OpenSSLVerifyCallback(int PreverifyStatus, X509_STORE_CTX *X509)
 {
 //This does nothing. verification is done in 'OpenSSLVerifyCertificate' instead
     return(1);
@@ -134,6 +135,114 @@ static char *OpenSSLGetCertFingerprint(char *RetStr, X509 *cert)
 }
 
 
+
+
+static void OpenSSLSetupECDH(SSL_CTX *ctx)
+{
+    EC_KEY* ecdh;
+
+    ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+//ecdh = EC_KEY_new_by_curve_name( NID_secp384r1);
+
+    if (ecdh)
+    {
+        SSL_CTX_set_tmp_ecdh(ctx, ecdh);
+        EC_KEY_free(ecdh);
+    }
+
+}
+
+
+static void OpenSSLReseedRandom()
+{
+    int len=32;
+    char *Tempstr=NULL;
+
+
+    len=GenerateRandomBytes(&Tempstr, len, ENCODE_NONE);
+    RAND_seed(Tempstr,len);
+    memset(Tempstr,0,len); //extra paranoid step, don't keep those bytes in memory!
+
+    DestroyString(Tempstr);
+}
+
+
+
+
+
+
+
+static void OpenSSLSetupDH(SSL_CTX *ctx)
+{
+    char *Tempstr=NULL;
+    const char *ptr;
+    DH *dh=NULL;
+    FILE *paramfile;
+
+    if (CachedDH) dh=CachedDH;
+    else
+    {
+        ptr=LibUsefulGetValue("SSL:DHParams-File");
+        if (StrValid(ptr))
+        {
+            Tempstr=CopyStr(Tempstr,ptr);
+
+            paramfile = fopen(Tempstr, "r");
+            if (paramfile)
+            {
+                CachedDH = PEM_read_DHparams(paramfile, NULL, NULL, NULL);
+                dh=CachedDH;
+                fclose(paramfile);
+            }
+        }
+    }
+
+    if (dh) SSL_CTX_set_tmp_dh(ctx, dh);
+
+//Don't free these parameters, as they are cached
+//DH_KEY_free(dh);
+
+    DestroyString(Tempstr);
+}
+
+
+
+
+static int INTERNAL_SSL_INIT()
+{
+    char *Tempstr=NULL;
+    static int InitDone=FALSE;
+
+//Always reseed RAND on a new connection
+//OpenSSLReseedRandom();
+
+    if (InitDone) return(TRUE);
+
+    SSL_library_init();
+#ifdef HAVE_OPENSSL_ADD_ALL_ALGORITHMS
+    OpenSSL_add_all_algorithms();
+#endif
+    SSL_load_error_strings();
+    Tempstr=MCopyStr(Tempstr,"openssl:",SSLeay_version(SSLEAY_VERSION)," : ", SSLeay_version(SSLEAY_BUILT_ON), " : ",SSLeay_version(SSLEAY_CFLAGS),NULL);
+    LibUsefulSetValue("SSL:Library", Tempstr);
+    if (! StrValid(LibUsefulGetValue("SSL:Level"))) LibUsefulSetValue("SSL:Level", "tls");
+    DestroyString(Tempstr);
+    InitDone=TRUE;
+    return(TRUE);
+}
+
+
+
+#endif
+//end of static functions that only exist if we have libssl
+
+
+
+//everything after this exists even if we don't have libssl, and returns a fail value if called without
+//libssl being compiled in. These are functions that can/might be called by programs, and thus need
+//to always exist, even if only as stubs
+
+
 char *OpenSSLCertDetailsGetCommonName(char *RetStr, const char *CertDetails)
 {
     char *Name=NULL, *Value=NULL;
@@ -161,6 +270,8 @@ int OpenSSLVerifyCertificate(STREAM *S, int Flags)
     char *Value=NULL;
     const char *ptr;
     int val;
+
+#ifdef HAVE_LIBSSL
     X509 *cert=NULL;
     SSL *ssl;
 
@@ -315,6 +426,7 @@ int OpenSSLVerifyCertificate(STREAM *S, int Flags)
     }
     else OpenSSLCertError(S,"peer provided no certificate");
 
+#endif
 
     DestroyString(Value);
 
@@ -331,7 +443,8 @@ int OpenSSLVerifyCertificate(STREAM *S, int Flags)
 // tls1.3 - allow TLSv.13 and up
 // default. Currently equivalent to tls but may change in future
 
-static int OpenSSLSetOptions(STREAM *S, SSL *ssl, int Options)
+#ifdef HAVE_LIBSSL
+int OpenSSLSetOptions(STREAM *S, SSL *ssl, int Options)
 {
     const char *ptr;
     int level=LEVEL_SSL3, val;
@@ -406,114 +519,10 @@ static int OpenSSLSetOptions(STREAM *S, SSL *ssl, int Options)
 
 
     SSL_set_options(ssl, Options);
+
     return(Options);
 }
-
-
-
-static void OpenSSLSetupECDH(SSL_CTX *ctx)
-{
-    EC_KEY* ecdh;
-
-    ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-//ecdh = EC_KEY_new_by_curve_name( NID_secp384r1);
-
-    if (ecdh)
-    {
-        SSL_CTX_set_tmp_ecdh(ctx, ecdh);
-        EC_KEY_free(ecdh);
-    }
-
-}
-
-
-static void OpenSSLReseedRandom()
-{
-    int len=32;
-    char *Tempstr=NULL;
-
-
-    len=GenerateRandomBytes(&Tempstr, len, ENCODE_NONE);
-    RAND_seed(Tempstr,len);
-    memset(Tempstr,0,len); //extra paranoid step, don't keep those bytes in memory!
-
-    DestroyString(Tempstr);
-}
-
-
-
-
-
-
-
-static void OpenSSLSetupDH(SSL_CTX *ctx)
-{
-    char *Tempstr=NULL;
-    const char *ptr;
-    DH *dh=NULL;
-    FILE *paramfile;
-
-    if (CachedDH) dh=CachedDH;
-    else
-    {
-        ptr=LibUsefulGetValue("SSL:DHParams-File");
-        if (StrValid(ptr))
-        {
-            Tempstr=CopyStr(Tempstr,ptr);
-
-            paramfile = fopen(Tempstr, "r");
-            if (paramfile)
-            {
-                CachedDH = PEM_read_DHparams(paramfile, NULL, NULL, NULL);
-                dh=CachedDH;
-                fclose(paramfile);
-            }
-        }
-    }
-
-    if (dh) SSL_CTX_set_tmp_dh(ctx, dh);
-
-//Don't free these parameters, as they are cached
-//DH_KEY_free(dh);
-
-    DestroyString(Tempstr);
-}
-
-
-
-
-static int INTERNAL_SSL_INIT()
-{
-    char *Tempstr=NULL;
-    static int InitDone=FALSE;
-
-//Always reseed RAND on a new connection
-//OpenSSLReseedRandom();
-
-    if (InitDone) return(TRUE);
-
-    SSL_library_init();
-#ifdef HAVE_OPENSSL_ADD_ALL_ALGORITHMS
-    OpenSSL_add_all_algorithms();
 #endif
-    SSL_load_error_strings();
-    Tempstr=MCopyStr(Tempstr,"openssl:",SSLeay_version(SSLEAY_VERSION)," : ", SSLeay_version(SSLEAY_BUILT_ON), " : ",SSLeay_version(SSLEAY_CFLAGS),NULL);
-    LibUsefulSetValue("SSL:Library", Tempstr);
-    if (! StrValid(LibUsefulGetValue("SSL:Level"))) LibUsefulSetValue("SSL:Level", "tls");
-    DestroyString(Tempstr);
-    InitDone=TRUE;
-    return(TRUE);
-}
-
-
-
-#endif
-//end of static functions that only exist if we have libssl
-
-
-
-//everything after this exists even if we don't have libssl, and returns a fail value if called
-
 
 
 
@@ -597,7 +606,7 @@ void OpenSSLGenerateDHParams()
 
 int DoSSLClientNegotiation(STREAM *S, int Flags)
 {
-    int result=FALSE, i, val;
+    int result=FALSE, i;
     char *Token=NULL;
 #ifdef HAVE_LIBSSL
     const SSL_METHOD *Method;
@@ -657,7 +666,7 @@ int DoSSLClientNegotiation(STREAM *S, int Flags)
 
             result=SSL_do_handshake(ssl);
 
-            S->State |= SS_SSL;
+            S->State |= LU_SS_SSL;
 
             OpenSSLQueryCipher(S);
             OpenSSLVerifyCertificate(S, LU_SSL_VERIFY_HOSTNAME);
@@ -684,8 +693,6 @@ int DoSSLServerNegotiation(STREAM *S, int Flags)
     const SSL_METHOD *Method;
     SSL_CTX *ctx;
     SSL *ssl;
-    const char *ptr;
-
 
     if (S)
     {
@@ -733,7 +740,7 @@ int DoSSLServerNegotiation(STREAM *S, int Flags)
                         break;
 
                     case TRUE:
-                        S->State |= SS_SSL;
+                        S->State |= LU_SS_SSL;
                         if (Flags & LU_SSL_VERIFY_PEER) OpenSSLVerifyCertificate(S, 0);
                         OpenSSLQueryCipher(S);
                         break;
@@ -786,7 +793,7 @@ int OpenSSLSTREAMCheckForBytes(STREAM *S)
 
 //if there are bytes available in the internal OpenSSL buffers, when we don't have to
 //wait on a select, we can just go straight through to SSL_read
-    if (S->State & SS_SSL)
+    if (S->State & LU_SS_SSL)
     {
         //ssl pending checks if there's bytes in the SSL buffer, it's not a select
         byte_count=SSL_pending(SSL_OBJ);
@@ -805,13 +812,14 @@ int OpenSSLSTREAMReadBytes(STREAM *S, char *Data, int len)
 
 
     SSL_OBJ=(SSL *) STREAMGetItem(S,"LIBUSEFUL-SSL:OBJ");
-    if (S->State & SS_SSL)
+    if (S->State & LU_SS_SSL)
     {
         bytes_read=SSL_read(SSL_OBJ, Data, len);
         //  saved_errno is used in all cases to capture errno before another function changes it
         //  saved_errno=errno;
         //zero or less indicates some kind of error. Could be we are waiting for or bytes, or any number of
         //real errors that count as disconnection
+
         if (bytes_read < 1)
         {
             //turns out you get hangs here if you treat SSL_ERROR_WANT_READ as being 'wait for more bytes'
@@ -820,19 +828,20 @@ int OpenSSLSTREAMReadBytes(STREAM *S, char *Data, int len)
             bytes_read=-1;
 
             /*
-            switch (SSL_get_error(SSL_OBJ, bytes_read))
-            {
-            //these all mean SSL is waiting for more data, and has nothing to offer us right now
-            case SSL_ERROR_WANT_READ:
-            	bytes_read=0;
-             break;
+                    val=SSL_get_error(SSL_OBJ, bytes_read);
+                    switch (val)
+                    {
+                    //these all mean SSL is waiting for more data, and has nothing to offer us right now
+                    case SSL_ERROR_WANT_READ:
+                    	bytes_read=0;
+                     break;
 
-            //for anything else consider the connection closed
-            default:
-            	bytes_read=-1;
-            break;
-            }
-            */
+                    //for anything else consider the connection closed
+                    default:
+                    	bytes_read=-1;
+                    break;
+                    }
+             */
         }
     }
 #endif
@@ -881,7 +890,7 @@ void OpenSSLClose(STREAM *S)
     }
 #endif
 
-    S->State &= ~SS_SSL;
+    S->State &= ~LU_SS_SSL;
 }
 
 
