@@ -47,21 +47,17 @@ int ItemIncluded(const char *Line, double secs)
 
 
 
+#define ITEM_NORMAL 0
+#define ITEM_START  -1
+#define ITEM_END    -2
 
-void ProcessTimedItem(struct timeval *When, double Secs, const char *Line)
+int ProcessTimedItem(struct timeval *When, double Secs, const char *Line)
 {
     const char *prefix="", *postfix="";
     char *Tempstr=NULL;
+    int RetVal=ITEM_NORMAL;
 
-    if (InPatternList(Line, Settings.StartStrings, NULL))
-    {
-        //if we are in 'warn only' mode, where we only display items that have a time warning
-        //then we want a 'start string' that matches the start of an interaction to be registered as the start time
-        //but we don't want it displayed
-        if (! (Settings.Flags & FLAG_WARN_ONLY)) printf("%s%10s%s  %s\n", Settings.NormPrefix, " -- ", Settings.NormPostfix, Line);
-        Started=TRUE;
-    }
-    else if (Started)
+    if (Started)
     {
         if ((Settings.WarnTime > -1) && (Secs > Settings.WarnTime))
         {
@@ -81,10 +77,16 @@ void ProcessTimedItem(struct timeval *When, double Secs, const char *Line)
         StatsInsert("default", When, Secs);
 
         if (InPatternList(Line, Settings.Summaries, &Tempstr)) StatsInsert(Tempstr, When, Secs);
-        if (InPatternList(Line, Settings.EndStrings, NULL)) Started=FALSE;
+        if (InPatternList(Line, Settings.EndStrings, NULL))
+        {
+            Started=FALSE;
+            RetVal=ITEM_END;
+        }
     }
 
     Destroy(Tempstr);
+
+    return(RetVal);
 }
 
 
@@ -93,11 +95,68 @@ void ProcessTimedItem(struct timeval *When, double Secs, const char *Line)
 double ProcessLine(struct timeval *Prev, struct timeval *Curr, const char *Line)
 {
     double secs=0;
+    int result;
 
     secs=CalcTimediff(Prev, Curr);
-    if (ItemIncluded(Line, secs)) ProcessTimedItem(Curr, secs, Line);
+    if (InPatternList(Line, Settings.StartStrings, NULL))
+    {
+        //if we are in 'warn only' mode, where we only display items that have a time warning
+        //then we want a 'start string' that matches the start of an interaction to be registered as the start time
+        //but we don't want it displayed
+        if (! (Settings.Flags & FLAG_WARN_ONLY)) printf("%s%10s%s  %s\n", Settings.NormPrefix, " -- ", Settings.NormPostfix, Line);
+        Started=TRUE;
+        secs=ITEM_START;
+    }
+    else
+    {
+        if (ItemIncluded(Line, secs))
+        {
+            result=ProcessTimedItem(Curr, secs, Line);
+            if (result != ITEM_NORMAL) secs=(double) result;
+        }
+    }
 
     return(secs);
+}
+
+
+
+int TimediffNextLineIsContinuation(int result, char PeekChar)
+{
+    if (result < 1) return(FALSE);
+    if ((Settings.Flags & FLAG_INDENT_CONTINUES) && isspace(PeekChar)) return(TRUE);
+    if ((Settings.Flags & FLAG_NONUM_CONTINUES) && (! isdigit(PeekChar))) return(TRUE);
+
+    return(FALSE);
+}
+
+
+
+char *TimediffReadLine(char *RetStr, STREAM *S)
+{
+    char *Tempstr=NULL;
+    char inchar;
+    int result;
+
+    RetStr=STREAMReadLine(RetStr, S);
+    if (RetStr)
+    {
+        StripLeadingWhitespace(RetStr);
+        StripTrailingWhitespace(RetStr);
+
+        result=STREAMPeekBytes(S, &inchar, 1);
+        while (TimediffNextLineIsContinuation(result, inchar))
+        {
+            Tempstr=STREAMReadLine(Tempstr, S);
+            StripLeadingWhitespace(Tempstr);
+            StripTrailingWhitespace(Tempstr);
+            RetStr=CatStr(RetStr, Tempstr);
+            result=STREAMPeekBytes(S, &inchar, 1);
+        }
+    }
+
+    Destroy(Tempstr);
+    return(RetStr);
 }
 
 
@@ -107,6 +166,7 @@ int main(int argc, const char *argv[])
     STREAM *S;
     char *Tempstr=NULL;
     struct timeval Prev, Curr;
+    double secs;
 
     SettingsInit(argc, argv);
     if (! StrValid(Settings.StartStrings)) Started=TRUE;
@@ -118,17 +178,21 @@ int main(int argc, const char *argv[])
     S=STREAMOpen(Settings.Input, "r");
     if (S)
     {
-        Tempstr=STREAMReadLine(Tempstr, S);
+        Tempstr=TimediffReadLine(Tempstr, S);
         while (Tempstr)
         {
-            StripTrailingWhitespace(Tempstr);
             if (StrValid(Tempstr))
             {
                 ParseDateTime(Tempstr, &Curr);
-                ProcessLine(&Prev, &Curr, Tempstr);
-                memcpy(&Prev, &Curr, sizeof(struct timeval));
+                secs=ProcessLine(&Prev, &Curr, Tempstr);
+
+                if  (Settings.Flags & FLAG_FROM_START)
+                {
+                    if (secs == ITEM_START) memcpy(&Prev, &Curr, sizeof(struct timeval));
+                }
+                else memcpy(&Prev, &Curr, sizeof(struct timeval));
             }
-            Tempstr=STREAMReadLine(Tempstr, S);
+            Tempstr=TimediffReadLine(Tempstr, S);
         }
         //Display stats before closing stream,
         //because the stream might be stdin/stdout

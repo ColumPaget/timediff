@@ -3,8 +3,11 @@
 
 #include "includes.h"
 
-#define FLAG_WARN_ONLY 1
-#define FLAG_NANOSECS  2
+#define FLAG_WARN_ONLY        1
+#define FLAG_NANOSECS         2
+#define FLAG_INDENT_CONTINUES 4
+#define FLAG_NONUM_CONTINUES  8
+#define FLAG_FROM_START      16
 
 typedef struct
 {

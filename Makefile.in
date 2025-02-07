@@ -3,6 +3,8 @@ FLAGS=@CFLAGS@ @DEFS@
 LIBS=@LIBS@
 STATIC_LIBS=@LIBUSEFUL_BUNDLED@
 PREFIX=@prefix@
+BINDIR=@bindir@
+MANDIR=@mandir@
 
 all: $(OBJ)
 	gcc $(FLAGS) -otimediff $(OBJ) main.c $(LIBS) $(STATIC_LIBS)
@@ -31,4 +33,7 @@ clean:
 
 
 install:
-	cp -f timediff $(PREFIX)/bin
+	mkdir -p $(PREFIX)/$(BINDIR)
+	cp -f timediff $(PREFIX)/$(BINDIR)
+	mkdir -p $(PREFIX)/$(MANDIR)
+	cp -f timediff.1 $(PREFIX)/$(MANDIR)

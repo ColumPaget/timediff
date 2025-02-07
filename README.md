@@ -54,20 +54,29 @@ OPTIONS
   -min <seconds>        ignore/discard items with time difference less than <seconds>
   -max <seconds>        ignore/discard items with time difference greater than <seconds>
   -w <seconds>          'warn time' - highlight items with time difference greater than <seconds>
+  -W                    only display lines that exceed 'warn time' (use in combination with -w)
+  -indent               treat indented lines (lines starting with withspace) as continuations of the previous line
+  -I                    treat indented lines (lines starting with withspace) as continuations of the previous line
+  -multiline            treat any line not starting with a digit as continuation of the previous line
+  -M                    treat any line not starting with a digit as continuation of the previous line
+  -from-start           measure time from 'start' not from previous item
+  -fs                   measure time from 'start' not from previous item
+  -F                    measure time from 'start' not from previous item
   -s <pattern>          add a shell-style fnmatch pattern that marks a 'start' of a block of events (use -s multiple times to add multiple patterns)
   -e <pattern>          add a shell-style fnmatch pattern that marks a 'end' of a block of events (use -e multiple times to add multiple patterns)
   -i <pattern>          add a shell-style fnmatch pattern that selects lines to be INcluded in output
   -x <pattern>          add a shell-style fnmatch pattern that selects lines to be EXcluded in output
   -S <pattern>          add a shell-style fnmatch pattern that selects lines to have their own statistics summary
-  -W                    only display lines that exceed 'warn time' (use in combination with -w)
-  -?                    print program help
-  -help                 print program help
-  --help                print program help
-  -version              print program version info
-  --version             print program version info
+  -?                    this help
+  -help                 this help
+  --help                this help
+  -version              print program version
+  --version             print program version
 ```
 
-All options that take a 'seconds' argument are floating point, so milliseconds can be expressed as fractions of a second. e.g. -w 0.5 for 500 milliseconds
+
+All options that take a 'seconds' argument are floating point, so milliseconds can be expressed as fractions of a second. e.g. '-w 0.5' for 500 milliseconds. Alternatively the suffixes 'm' or 'ms' for milliseconds and 'c' or 'cs' can be used, e.g. '-min 200ms'.
+
 
 
 TIMESTAMP FORMATS

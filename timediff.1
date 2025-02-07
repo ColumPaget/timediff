@@ -1,0 +1,250 @@
+.TH  timediff  1 " 2025/02/07"
+
+.SH NAME
+ 
+.P
+timediff - read lines with a leading timestamp, and print out the time difference between them
+.SH DESCRIPTION
+ 
+.P
+timediff reads log lines starting with a timestamp. It calculates the time difference between lines and prints them back out with that time difference in floating-point seconds printed at the start of line. 
+.SH SYNOPSIS
+ 
+.RS
+.EX
+ timediff <options> <file>
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.SH OPTIONS
+ 
+.br
+ 
+.TP
+.B -min <seconds>
+ ignore/discard items with time difference less than <seconds>
+ 
+.br
+ 
+.TP
+.B -max <seconds>
+ ignore/discard items with time difference greater than <seconds>
+ 
+.br
+ 
+.TP
+.B -w <seconds>
+ 'warn time' - highlight items with time difference greater than <seconds>
+ 
+.br
+ 
+.TP
+.B -W
+ only display lines that exceed \(aqwarn time\(aq (use in combination with -w)
+ 
+.br
+ 
+.TP
+.B -indent
+ treat indented lines (lines starting with withspace) as continuations of the previous line
+ 
+.br
+ 
+.TP
+.B -I
+ treat indented lines (lines starting with withspace) as continuations of the previous line
+ 
+.br
+ 
+.TP
+.B -multiline
+ treat any line not starting with a digit as continuation of the previous line
+ 
+.br
+ 
+.TP
+.B -M
+ treat any line not starting with a digit as continuation of the previous line
+ 
+.br
+ 
+.TP
+.B -from-start
+ measure time from \(aqstart\(aq not from previous item
+ 
+.br
+ 
+.TP
+.B -fs
+ measure time from \(aqstart\(aq not from previous item
+ 
+.br
+ 
+.TP
+.B -F
+ measure time from \(aqstart\(aq not from previous item
+ 
+.br
+ 
+.TP
+.B -s <pattern>
+ add a shell-style fnmatch pattern that marks a \(aqstart\(aq of a block of events (use -s multiple times to add multiple patterns)
+ 
+.br
+ 
+.TP
+.B -e <pattern>
+ add a shell-style fnmatch pattern that marks a \(aqend\(aq of a block of events (use -e multiple times to add multiple patterns)
+ 
+.br
+ 
+.TP
+.B -i <pattern>
+ add a shell-style fnmatch pattern that selects lines to be INcluded in output
+ 
+.br
+ 
+.TP
+.B -x <pattern>
+ add a shell-style fnmatch pattern that selects lines to be EXcluded in output
+ 
+.br
+ 
+.TP
+.B -S <pattern>
+ add a shell-style fnmatch pattern that selects lines to have their own statistics summary
+ 
+.br
+ 
+.TP
+.B -?
+ this help
+ 
+.br
+ 
+.TP
+.B -help
+ this help
+ 
+.br
+ 
+.TP
+.B --help
+ this help
+ 
+.br
+ 
+.TP
+.B -version
+ print program version
+ 
+.br
+ 
+.TP
+.B --version
+ print program version
+ 
+.P
+All options that take a \(aqseconds\(aq argument are floating point, so milliseconds can be expressed as fractions of a second. e.g. \(aq-w 0.5\(aq for 500 milliseconds. Alternatively the suffixes \(aqm\(aq or \(aqms\(aq for milliseconds and \(aqc\(aq or \(aqcs\(aq can be used, e.g. \(aq-min 200ms\(aq.
+.SH TIMESTAMP FORMATS
+ 
+.P
+Timestamps are expected to be at the start of the line. 
+.P
+timediff can handle the formats:
+.RS
+.EX
+
+YYYY?mm?dd?HH:MM:SS?mmm
+HH:MM:SS?mmm YYYY?mm?dd
+bbb dd HH:MM:SS?mmm
+SSSS.mmm 
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.P
+where \(aq?\(aq is any character, \(aqYYYY\(aq is the year \(aqmm\(aq is the month number, \(aqbbb\(aq is the month short name (e.g. "Oct") \(aqdd\(aq is the day number, \(aqHH\(aq is the hour, \(aqMM\(aq is the minutes, \(aqSS\(aq is the seconds and \(aqmmm\(aq is milliseconds. 
+.P
+Note how the \(aq:\(aq character is used to distinguish the time component of a date-time from the date. 
+.P
+The milliseconds component is optional, and if it\(aqs six digits instead of three, then timediff will parse it as microseconds. The \(aqSSSS.mmm\(aq format is \(aqkernel/dmesg\(aq style, where number of seconds since some date, either the unix epoch or boot-up, are used to indicate the time.
+.P
+timediff can also handle these formats if they\(aqre wrapped in characters like [] <> or {}
+.P
+example formats that have been seen to work:
+.RS
+.EX
+
+2023\-12\-05T10:30:14.182 Connection from 192.168.8.1
+2023/12/05 10:30:14.182 Connection from 192.168.8.1
+2023/12/05 10:30:14.182543 Connection from 192.168.8.1
+2023/12/05 10:30:14 Connection from 192.168.8.1
+Dec 05 10:30:14 Connection from 192.168.8.1
+10:30:14.182543 Connection from 192.168.8.1
+[1000.234762] Starting up
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.P
+timediff has been seen to work with the dmesg, syslog, strace and tcpdump log formats.
+.SH WARN TIME
+ 
+.P
+The \(aq-w\(aq option allows the specification of a \(aqwarn time\(aq. Any events that take longer than this time will be highlighted in the output of timediff. The \(aq-W\(aq option can be used in combination with \(aq-w\(aq to ONLY display those events longer than the warn time. 
+.SH INCLUDING AND EXCLUDING LINES
+ 
+.P
+The \(aq-i\(aq and \(aq-x\(aq options allow specifying a shell-style pattern that can be used to either include or exclude lines from consideration. e.g.:
+.RS
+.EX
+
+\-i "*SCAN*"
+\-x "*DEVICE*STATUS*"
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.P
+if \(aqinclude\(aq patterns are specified, then ONLY lines matching those patterns are processed.  if \(aqexclude\(aq patterns are specified then any lines matching them are dropped from processing. 
+.P
+Multiple \(aq-i\(aq and \(aq-x\(aq options can be supplied on the command-line.
+.P
+The \(aq-min\(aq and \(aq-max\(aq options can also be used to exclude lines based on their time difference, e.g. \(aq-max 0.1\(aq would only show lines with timediffs less than or equal to 100ms.
+.SH START AND END LINES
+ 
+.P
+The \(aq-s\(aq and \(aq-e\(aq options allow the specification of a \(aqstart\(aq and \(aqend\(aq pattern. e.g.:
+.RS
+.EX
+
+\-s "*NEWITEM*"
+\-e "*ITEM_GONE*"
+.RE
+.EE
+.fi
+.in
+.ad b
+.nop  
+.P
+Lines matching these patterns are treated as the start and end of a block of events. \(aq-s\(aq can be used independantly of \(aq-e\(aq, but \(aq-e\(aq causes lines after it to be excluded from processing until a \(aqstart line\(aq (set with \(aq-s\(aq) is seen.
+.P
+This is intended for automation processes where events are connected to the processing of a physical object, with long gaps between such objects arriving and being processed. In these situations we don\(aqt consider the gaps between objects being processed to be problematic delays, but timediff will report them as such. Specifying a start time allows us to say "the period we are interested in starts here". This is useful in logs where each batch of events starts with a particular event message. There may be a long delay before the start event, and we don\(aqt want to register that delay. In some cases there may be events between the end of a block of events and the \(aqstart\(aq event. If we are uninterested in these events we can specify an \(aqend\(aq pattern too, and now only events between the start and end events will be paid attention to.
+.P
+The \(aq-from-start\(aq (or \(aq-fs\(aq or \(aq-F\(aq) option causes timediff to measure time from a \(aqstart line\(aq rather than from the previous line.
+.SH CONTINUATION LINES
+ 
+.P
+Some logs (notably tcpdump used with \(aq-A\(aq or \(aq-X\(aq) produce output that is more than one line, and timediff struggles to parse this. The \(aq-indent\(aq and \(aq-multiline\(aq options offer a solution. \(aq-indent\(aq (or \(aq-I\(aq) will concatanate lines that start with whitespace into one line (so this is useful to parse \(aqtcpdump -X\(aq). Alternatively \(aq-multiline\(aq (or \(aq-M\(aq) will concatanate any lines that do not start with a number (as the datetime format is expected to use numbers) (so this works for \(aqtcpdump -A\(aq). Unfortuantely the \(aq-multiline\(aq option is not compatible with date formats with a month name at the start.
+.SH SUMMARY LINES
+  At the end of output, a batch of \(aqsummaries\(aq are printed. These lines represent the minimum, average and maximum times for a logged event. The \(aqdefault\(aq summary applies to all eventss, but the \(aq-S\(aq option can be used to add a patterns and generate summaries for lines/events matching that pattern.  
