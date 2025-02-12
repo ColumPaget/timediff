@@ -1,3 +1,7 @@
+2.1 (2025-02-12)
+----------------
+  * If start and end patterns are defined, and -min or -max is used to exclude things by time, then exclude the entire block, rather than just lines within it.
+
 2.0 (2025-02-07)
 ----------------
   * add `-fromstart` option to allow measuring timediffs from a 'start line' rather than from previous line
