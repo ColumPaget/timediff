@@ -1,4 +1,4 @@
-AC_INIT([timediff],[2.1],[colums.projects@gmail.com])
+AC_INIT([timediff],[2.2],[colums.projects@gmail.com])
 
 AC_PROG_CC
 AC_LANG([C])

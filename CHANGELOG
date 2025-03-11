@@ -1,3 +1,7 @@
+2.2 (2025-03-11)
+----------------
+  * Fix crash that can happen sometimes when using -min
+
 2.1 (2025-02-12)
 ----------------
   * If start and end patterns are defined, and -min or -max is used to exclude things by time, then exclude the entire block, rather than just lines within it.

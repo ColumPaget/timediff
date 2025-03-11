@@ -175,7 +175,7 @@ char *HandleStartEndBlock(char *RetStr, double secs, char *Line, struct timeval 
     if ( (! StrValid(Settings.StartStrings)) && (! StrValid(Settings.EndStrings)) )
     {
         memcpy(PrevTime, CurrTime, sizeof(struct timeval));
-        printf("%s\n", Line);
+        if (StrValid(Line)) printf("%s\n", Line);
         return(CopyStr(RetStr, ""));
     }
 
